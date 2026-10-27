@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoSD AI - اختبار Gemma</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 25px auto;
+      padding: 15px;
+      background: #f4f7f6;
+      color: #222;
+    }
+    h2 { color: #087f5b; }
+    #chat {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      min-height: 300px;
+      margin-bottom: 12px;
+    }
+    .msg {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .user { background: #d8f3dc; }
+    .bot { background: #e9ecef; }
+    textarea, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      font-size: 16px;
+    }
+    textarea { border-radius: 8px; }
+    button {
+      background: #087f5b;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+    }
+    button:disabled { opacity: .6; }
+  </style>
+</head>
+<body>
+  <h2>🇸🇩 MoSD AI — اختبار اللهجة السودانية</h2>
+  <p>اختبر فهم النموذج للسوداني والهظار الطبيعي.</p>
+
+  <div id="chat" aria-live="polite"></div>
+
+  <textarea id="message" rows="3"
+    placeholder="اكتب رسالتك بالسوداني..."></textarea>
+
+  <button id="send">أرسل الرسالة</button>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("message");
+    const button = document.getElementById("send");
+
+    const history = [];
+
+    function addMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.textContent =
+        (role === "user" ? "إنت: " : "MoSD AI: ") + text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const message = input.value.trim();
+      if (!message || button.disabled) return;
+
+      input.value = "";
+      button.disabled = true;
+      addMessage("user", message);
+
+      history.push({ role: "user", content: message });
+
+      const loading = document.createElement("div");
+      loading.className = "msg bot";
+      loading.textContent = "جاري التفكير...";
+      chat.appendChild(loading);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "فشل الاتصال بالنموذج");
+        }
+
+        const reply = data.reply || "النموذج لم يُرجع رداً.";
+        history.push({ role: "assistant", content: reply });
+        addMessage("bot", reply);
+
+      } catch (error) {
+        addMessage("bot", "حصل خطأ: " + error.message);
+      } finally {
+        loading.remove();
+        button.disabled = false;
+        input.focus();
+      }
+    }
+
+    button.addEventListener("click", sendMessage);
+
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
